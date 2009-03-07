@@ -400,12 +400,15 @@ FOCUS-WINDOW is an extra window used for _NET_SUPPORTING_WM_CHECK."
                                              :border-width 1
                                              :colormap (xlib:screen-default-colormap
                                                         screen-number)
-                                             :event-mask '(:key-press :key-release)))
+                                             :event-mask '(:key-press :key-release)
+                                             :save-under :on))
            (focus-window (xlib:create-window :parent (xlib:screen-root screen-number)
-                                             :x 0 :y 0 :width 1 :height 1))
+                                             :x 0 :y 0 :width 1 :height 1
+                                             :save-under :on))
            (key-window (xlib:create-window :parent (xlib:screen-root screen-number)
                                            :x 0 :y 0 :width 1 :height 1
-                                           :event-mask '(:key-press :key-release)))
+                                           :event-mask '(:key-press :key-release)
+                                           :save-under :on))
            (message-window (xlib:create-window :parent (xlib:screen-root screen-number)
                                                :x 0 :y 0 :width 1 :height 1
                                                :background bg
@@ -422,15 +425,16 @@ FOCUS-WINDOW is an extra window used for _NET_SUPPORTING_WM_CHECK."
                                              :border-width 1
                                              :colormap (xlib:screen-default-colormap
                                                         screen-number)
-                                             :event-mask '(:exposure)))
+                                             :event-mask '(:exposure)
+                                             :save-under :on))
            (font (xlib:open-font *display*
                                  (if (font-exists-p +default-font-name+)
                                      +default-font-name+
                                      "*")))
            (group (make-instance 'tile-group
-                   :screen screen
-                   :number 1
-                   :name *default-group-name*)))
+                                 :screen screen
+                                 :number 1
+                                 :name *default-group-name*)))
       ;; Create our screen structure
       ;; The focus window is mapped at all times
       (xlib:map-window focus-window)
