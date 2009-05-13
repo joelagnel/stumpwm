@@ -429,6 +429,7 @@ Use the window's resource name.
 
 (defstruct ccontext
   win
+  px
   gc
   default-fg
   default-bright
@@ -436,6 +437,9 @@ Use the window's resource name.
 
 (defun screen-message-window (screen)
   (ccontext-win (screen-message-cc screen)))
+
+(defun screen-message-pixmap (screen)
+  (ccontext-px (screen-message-cc screen)))
 
 (defun screen-message-gc (screen)
   (ccontext-gc (screen-message-cc screen)))
@@ -659,7 +663,7 @@ output directly to a file.")
       (format *debug-stream* "~2,'0d:~2,'0d:~2,'0d " h m sec))
     ;; strip out non base-char chars quick-n-dirty like
     (write-string (map 'string (lambda (ch)
-                                 (if (typep ch 'base-char)
+                                 (if (typep ch 'standard-char)
                                      ch #\?))
                        (apply 'format nil fmt args))
                   *debug-stream*)))
@@ -1077,3 +1081,15 @@ of :error."
 
 (define-condition stumpwm-error (error)
   () (:documentation "Any stumpwm specific error should inherit this."))
+
+(defun intern1 (thing &optional (package *package*) (rt *readtable*))
+  "A DWIM intern."
+  (intern
+   (ecase (readtable-case rt)
+     (:upcase (string-upcase thing))
+     (:downcase (string-downcase thing))
+     ;; Prooobably this is what they want? It could make sense to
+     ;; upcase them as well.
+     (:preserve thing)
+     (:invert (string-downcase thing)))
+   package))

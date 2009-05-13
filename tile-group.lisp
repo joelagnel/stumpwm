@@ -769,20 +769,21 @@ depending on the tree's split direction."
          (width (screen-frame-outline-width screen))
          (gc (screen-frame-outline-gc screen))
          (halfwidth (/ width 2)))
-    (let ((x (frame-x f))
-          (y (frame-display-y group f))
-          (w (frame-width f))
-          (h (frame-display-height group f)))
-      (when tl
-        (xlib:draw-line win gc
-                        x (+ halfwidth y) w 0 t)
-        (xlib:draw-line win gc
-                        (+ halfwidth x) y 0 h t))
-      (when br
-        (xlib:draw-line win gc
-                        (+ x (- w halfwidth)) y 0 h t)
-        (xlib:draw-line win gc
-                        x (+ y (- h halfwidth)) w 0 t)))))
+    (when (> width 0)
+      (let ((x (frame-x f))
+	    (y (frame-display-y group f))
+	    (w (frame-width f))
+	    (h (frame-display-height group f)))
+	(when tl
+	  (xlib:draw-line win gc
+			  x (+ halfwidth y) w 0 t)
+	  (xlib:draw-line win gc
+			  (+ halfwidth x) y 0 h t))
+	(when br
+	  (xlib:draw-line win gc
+			  (+ x (- w halfwidth)) y 0 h t)
+	  (xlib:draw-line win gc
+			  x (+ y (- h halfwidth)) w 0 t))))))
 
 (defun draw-frame-outlines (group &optional head)
   "Draw an outline around all frames in GROUP."
@@ -956,7 +957,7 @@ the current frame."
   (focus-next-frame (current-group)))
 
 (defcommand (sibling tile-group) () ()
-"Jump to the frame's sibling. If a frame is split into twe frames,
+"Jump to the frame's sibling. If a frame is split into two frames,
 these two frames are siblings."
   (focus-frame-next-sibling (current-group)))
 

@@ -280,7 +280,7 @@ _NET_WM_STATE_DEMANDS_ATTENTION set"
 
 (defun get-normalized-normal-hints (xwin)
   (macrolet ((validate-hint (fn)
-               (setf fn (intern (concatenate 'string (string :wm-size-hints-) (string fn)) :xlib))
+               (setf fn (intern1 (concatenate 'string (string '#:wm-size-hints-) (string fn)) :xlib))
                `(setf (,fn hints) (and (,fn hints)
                                        (plusp (,fn hints))
                                        (,fn hints)))))
@@ -359,9 +359,9 @@ _NET_WM_STATE_DEMANDS_ATTENTION set"
   (let ((win (gensym))
         (val (gensym)))
     `(progn
-      (defun ,(intern (format nil "WINDOW-~a" attr)) (,win)
+      (defun ,(intern1 (format nil "WINDOW-~a" attr)) (,win)
         (gethash ,attr (window-plist ,win)))
-      (defun (setf ,(intern (format nil "WINDOW-~a" attr))) (,val ,win)
+      (defun (setf ,(intern1 (format nil "WINDOW-~a" attr))) (,val ,win)
         (setf (gethash ,attr (window-plist ,win))) ,val))))
 
 (defun sort-windows (group)
@@ -826,6 +826,15 @@ needed."
   (dformat 3 "Kill client~%")
   (xlib:kill-client *display* (xlib:window-id window)))
 
+(defun select-window-from-menu (windows fmt)
+  "Allow the user to select a window from the list passed in @var{windows}.  The
+@var{fmt} argument specifies the window formatting used.  Returns the window
+selected."
+  (second (select-from-menu (current-screen)
+			    (mapcar (lambda (w)
+				      (list (format-expand *window-formatters* fmt w) w))
+				    windows))))
+
 ;;; Window commands
 
 (defcommand delete-window (&optional (window (current-window))) ()
@@ -928,12 +937,7 @@ override the default window formatting."
   (if (null (group-windows (current-group)))
       (message "No Managed Windows")
       (let* ((group (current-group))
-             (window (second (select-from-menu
-                              (current-screen)
-                              (mapcar (lambda (w)
-                                        (list (format-expand *window-formatters* fmt w) w))
-                                      (sort-windows group))))))
-
+             (window (select-window-from-menu (sort-windows group) fmt)))
         (if window
             (group-focus-window group window)
             (throw 'error :abort)))))
@@ -988,7 +992,7 @@ be used to override the default window formatting."
 
 (defcommand-alias windows echo-windows)
 
-(defcommand info (&optional (fmt *window-info-format*)) ()
+(defcommand info (&optional (fmt *window-info-format*)) (:rest)
   "Display information about the current window."
   (if (current-window)
       (message "~a" (format-expand *window-formatters* fmt (current-window)))

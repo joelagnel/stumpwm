@@ -44,6 +44,7 @@
 ;;; TODO:
 ;;;
 ;;; - Implement optional shortening for formatting functions
+;;; - Implement notification window on song change etc...
 
 ;;; CODE:
 
@@ -69,8 +70,11 @@
 	  mpd-kill
 	  mpd-disconnect
 	  mpd-connect
+          *mpd-browse-menu-map*
 	  mpd-browse-artists
 	  mpd-browse-albums
+          mpd-browse-genres
+          mpd-browse-tracks
 	  mpd-update
 	  mpd-clear
 	  mpd-volume-down
@@ -80,6 +84,8 @@
 	  mpd-next
 	  mpd-stop
 	  mpd-play-track
+          mpd-remove-track
+          mpd-swap-tracks
 	  mpd-search-genre
 	  mpd-search-album
 	  mpd-search-title
@@ -122,8 +128,9 @@
                      (error (c) (progn
                                   (message "Error with mpd connection: ~a" c)
                                   (setf *mpd-socket* nil)
-                                  (when *mpd-timer* (cancel-timer *mpd-timer*)))))
-     (message "Error: not connected to mpd~%")))
+                                  (when *mpd-timer*
+                                    (cancel-timer *mpd-timer*)))))
+     (message "Error: not connected to mpd")))
 
 (defun mpd-send (command)
   "Send command to stream ending with newline"
@@ -419,67 +426,184 @@ Volume
 
 (defvar *mpd-volume-step* 5)
 
-(defcommand mpd-browse-playlist () ()
-  (let ((status (mpd-send-command "status")))
-    (labels ((pick (options)
-                   (let ((selection
-                          (select-from-menu (current-screen) options
-                                            "Play song in playlist"
-                                            (if (equal
-                                                 (assoc-value :state status)
-                                                 "play")
-                                                (parse-integer
-                                                 (assoc-value :song status))
-                                              0))))
-                     (cond
-                      ((null selection)
-                       (throw 'stumpwm::error "Abort."))
-                      (t selection)))))
-      (let* ((response (mpd-send-command "playlistinfo"))
-             (result (mapcar #'cadr (remove-if (lambda (item)
-                                                 (not (equal :file
-                                                             (first item))))
-                                               response))))
-          (let* ((choice (pick result))
-               (song-number (position choice result)))
-          (mpd-send-command (format nil "play ~d" song-number)))))))
+(defun mpd-menu (title options keymap &optional initial-selection)
+  (let ((*menu-map* keymap))
+    (multiple-value-bind (choice selection)
+        (select-from-menu (current-screen) options title (or initial-selection
+                                                             0))
+      (cond
+        ((null choice)
+         (throw 'stumpwm::error "Abort."))
+        (t (values choice selection))))))
+
+(defun mpd-selected-item (menu)
+  (nth (menu-state-selected menu) (menu-state-table menu)))
+
+(defun mpd-menu-action (action-type)
+  (lambda (menu)
+    (declare (ignore menu))
+    (setf *current-menu-input* "")
+    (throw :menu-quit
+      (values action-type
+              (mpd-selected-item menu)))))
+
+;; playlist navigation/edition
+(defvar *mpd-playlist-menu-map* nil)
+(when (null *mpd-playlist-menu-map*)
+  (setf *mpd-playlist-menu-map*
+        (let ((m (make-sparse-keymap)))
+          (define-key m (kbd "C-p") 'menu-up)
+          (define-key m (kbd "Up") 'menu-up)
+          (define-key m (kbd "k") 'menu-up)
+
+          (define-key m (kbd "C-n") 'menu-down)
+          (define-key m (kbd "Down") 'menu-down)
+          (define-key m (kbd "j") 'menu-down)
+          (define-key m (kbd "C-g") 'menu-abort)
+          (define-key m (kbd "ESC") 'menu-abort)
+
+          (define-key m (kbd "S-Up") (mpd-menu-action :mpd-playlist-move-up))
+          (define-key m (kbd "S-Down") (mpd-menu-action :mpd-playlist-move-down))
+          (define-key m (kbd "d") (mpd-menu-action :mpd-playlist-delete))
+          (define-key m (kbd "RET") (mpd-menu-action :mpd-playlist-play))
+          m)))
+
+(defun mpd-uniq-and-sort-list (list criteria &optional do-sort)
+  (let ((lst (mapcar #'cadr (remove-if (lambda (item)
+					 (not (equal criteria
+						     (first item))))
+				       list))))
+    (if do-sort
+	(sort lst #'string<)
+	lst)))
+
+(defcommand mpd-browse-playlist (&optional current-song) ()
+  (let* ((status (mpd-send-command "status"))
+         (response (mpd-send-command "playlistinfo"))
+         (options (mpd-uniq-and-sort-list response :file)))
+    (multiple-value-bind (action choice)
+        (mpd-menu "Current playlist" options *mpd-playlist-menu-map*
+                  (if current-song
+                      current-song
+                      (if (equal (assoc-value :state status) "play")
+                          (parse-integer (assoc-value :song status))
+                          0)))
+      (let ((song-number (position choice options)))
+        (case action
+          (:mpd-playlist-move-up
+           (if (= song-number 1)
+               (mpd-browse-playlist song-number)
+               (progn (mpd-swap-tracks song-number (1- song-number))
+                      (mpd-browse-playlist (1- song-number)))))
+          (:mpd-playlist-move-down
+           (if (= song-number (length options))
+             (mpd-browse-playlist song-number)
+             (progn (mpd-swap-tracks song-number (1+ song-number))
+                    (mpd-browse-playlist (1+ song-number)))))
+          (:mpd-playlist-delete
+           (when song-number
+             (mpd-remove-track song-number)
+             (mpd-browse-playlist song-number)))
+          (:mpd-playlist-play
+           (when song-number
+             (mpd-play-track song-number))))))))
 
 (defcommand-alias select-song-from-playlist browse-playlist)
 
-(defcommand mpd-browse-albums () ()
-  (labels ((pick (options)
-             (let ((selection
-                    (select-from-menu (current-screen) options
-                                      "Play album" 0)))
-               (cond
-                 ((null selection)
-                  (throw 'stumpwm::error "Abort."))
-                 (t selection)))))
-    (let* ((response (mpd-send-command "list album"))
-           (result (mapcar #'cadr (remove-if (lambda (item)
-                                               (not (equal :album
-                                                           (first item))))
-                                             response))))
-      (let* ((choice (pick result)))
-        (mpd-search-and-add-album choice t)))))
+;; database  browsing
+(defvar *mpd-browse-menu-map* nil)
+(when (null *mpd-browse-menu-map*)
+  (setf *mpd-browse-menu-map*
+        (let ((m (make-sparse-keymap)))
+          (define-key m (kbd "C-p") 'menu-up)
+          (define-key m (kbd "Up") 'menu-up)
+          (define-key m (kbd "k") 'menu-up)
 
-(defcommand mpd-browse-artists () ()
-  (labels ((pick (options)
-             (let ((selection
-                    (select-from-menu (current-screen) options
-                                      "Play artists" 0)))
-               (cond
-                 ((null selection)
-                  (throw 'stumpwm::error "Abort."))
-                 (t selection)))))
-    (let* ((response (mpd-send-command "list artist"))
-           (result (mapcar #'cadr (remove-if (lambda (item)
-                                               (not (equal :artist
-                                                           (first item))))
-                                             response))))
-      (let* ((choice (pick result)))
-        (mpd-search-and-add-artist choice t)))))
+          (define-key m (kbd "C-n") 'menu-down)
+          (define-key m (kbd "Down") 'menu-down)
+          (define-key m (kbd "j") 'menu-down)
+          (define-key m (kbd "C-g") 'menu-abort)
+          (define-key m (kbd "ESC") 'menu-abort)
 
+          (define-key m (kbd "RET") (mpd-menu-action :mpd-browse-add-and-quit))
+          (define-key m (kbd "S-RET") (mpd-menu-action :mpd-browse-add))
+
+          (define-key m (kbd "Right") (mpd-menu-action :mpd-browse-next))
+          (define-key m (kbd "Left") (mpd-menu-action :mpd-browse-previous))
+          m)))
+
+
+(defcommand mpd-browse-artists (&optional genre) ()
+  (let* ((response (mpd-send-command
+                    (if genre
+                        (format nil "list artist genre \"~a\"" genre)
+                          "list artist")))
+         (options (mpd-uniq-and-sort-list response :artist t)))
+        (multiple-value-bind (action choice)
+            (mpd-menu "Select artist" options *mpd-browse-menu-map*)
+          (case action
+            (:mpd-browse-add-and-quit
+             (mpd-search-and-add-artist choice t))
+            (:mpd-browse-add
+             (mpd-search-and-add-artist choice t)
+             (mpd-browse-artists genre))
+            (:mpd-browse-previous
+             (unless %interactivep%
+               (mpd-browse-genres)))
+            (:mpd-browse-next
+               (mpd-browse-albums choice genre))))))
+
+(defcommand mpd-browse-genres () ()
+    (let* ((response (mpd-send-command "list genre"))
+           (options (mpd-uniq-and-sort-list response :genre t)))
+        (multiple-value-bind (action choice)
+            (mpd-menu "Select genre" options *mpd-browse-menu-map*)
+          (case action
+            (:mpd-browse-add-and-quit
+             (mpd-search-and-add-genre choice t))
+            (:mpd-browse-add
+             (mpd-search-and-add-genre choice t)
+             (mpd-browse-genres))
+            (:mpd-browse-next
+               (mpd-browse-artists choice))))))
+
+(defcommand mpd-browse-albums (&optional artist genre) ((:string "Artist: "))
+    (let* ((response (mpd-send-command
+                      (if artist
+                          (format nil "list album artist \"~a\"" artist)
+                          "list album")))
+           (options (mpd-uniq-and-sort-list response :album)))
+        (multiple-value-bind (action choice)
+            (mpd-menu "Select album" options *mpd-browse-menu-map*)
+          (case action
+            (:mpd-browse-add-and-quit
+             (mpd-search-and-add-album choice t))
+            (:mpd-browse-add
+             (mpd-search-and-add-album choice t)
+             (mpd-browse-albums artist genre))
+            (:mpd-browse-previous
+             (unless %interactivep%
+               (mpd-browse-artists genre)))
+            (:mpd-browse-next
+               (mpd-browse-tracks choice artist))))))
+
+(defcommand mpd-browse-tracks (album &optional artist) ((:string "Album: "))
+    (let* ((response (mpd-send-command
+                          (format nil "list title album \"~a\"" album)))
+           (options (mpd-uniq-and-sort-list response :title)))
+        (multiple-value-bind (action choice)
+            (mpd-menu "Select track" options *mpd-browse-menu-map*)
+          (case action
+            (:mpd-browse-add-and-quit
+             (mpd-search-and-add-title choice t))
+            (:mpd-browse-add
+             (mpd-search-and-add-title choice t)
+             (mpd-browse-tracks album artist))
+            (:mpd-browse-previous
+             (unless %interactivep%
+               (mpd-browse-albums artist)))))))
+
+;;misc. commands
 (defcommand mpd-connect () ()
   (message "~a" (init-mpd-connection)))
 
@@ -537,7 +661,7 @@ Passed an argument of zero and if crossfade is on, toggles crossfade off."
   (mpd-send-command "play"))
 
 (defcommand mpd-play-track (track) ((:number "Track: "))
-  (mpd-send-command (concat "play " (write-to-string (1- track)))))
+  (mpd-format-command "play ~d"  track))
 
 (defcommand mpd-stop () ()
   (mpd-send-command "stop"))
@@ -548,7 +672,7 @@ Passed an argument of zero and if crossfade is on, toggles crossfade off."
 (defcommand mpd-prev () ()
   (mpd-send-command "previous"))
 
-(defcommand mpd-set-volume (vol) ((rest "Set volume to: "))
+(defcommand mpd-set-volume (vol) ((:number "Set volume to: "))
   (mpd-send-command (format nil "setvol ~a" vol)))
 
 (defcommand mpd-volume-up () ()
@@ -594,7 +718,13 @@ Passed an argument of zero and if crossfade is on, toggles crossfade off."
       (message "~a files in playlist" (length result)))))
 
 (defcommand mpd-add-file (file) ((:rest "Add file to playlist: "))
-  (mpd-send-command (format nil "add \"~a\"" file)))
+  (mpd-format-command "add \"~a\"" file))
+
+(defcommand mpd-remove-track (track-number) ((:number "Delete track number: "))
+  (mpd-format-command "delete ~d" track-number))
+
+(defcommand mpd-swap-tracks (track-1 track-2) ()
+  (mpd-format-command "swap ~d ~d" track-1 track-2))
 
 ;;search and add commands
 (defcommand mpd-search-and-add-artist (what &optional (exact-search nil))
@@ -685,7 +815,6 @@ Passed an argument of zero and if crossfade is on, toggles crossfade off."
 (defvar *mpd-map* nil)
 
 ;;Key map
-;;FIXME: maybe some inferior mode would be a good idea (see resize in user.lisp)
 (fill-keymap *mpd-search-map*
              (kbd "a") "mpd-search-artist"
              (kbd "A") "mpd-search-album"
@@ -696,6 +825,8 @@ Passed an argument of zero and if crossfade is on, toggles crossfade off."
 (fill-keymap *mpd-browse-map*
              (kbd "p") "mpd-browse-playlist"
              (kbd "l") "mpd-browse-albums"
+             (kbd "g") "mpd-browse-genres"
+             (kbd "t") "mpd-browse-tracks"
              (kbd "a") "mpd-browse-artists")
 
 (fill-keymap *mpd-add-map*
