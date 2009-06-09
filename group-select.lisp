@@ -1,7 +1,7 @@
 (in-package :stumpwm)
-(export '(cube-test))
+(export '(create-cube create-cubes destroy-cubes))
 
-(defparameter *rects* (make-array 1 :fill-pointer 0 :adjustable t))
+(defparameter *cubes* (make-array 1 :fill-pointer 0 :adjustable t))
 
 (defstruct cube
    state
@@ -10,21 +10,20 @@
    gcontext-normal
    gcontext-toggled)
 
-(defun make-rects ()
+(defun create-cubes ()
   (dotimes (n 10)
-    (vector-push-extend (make-rect-window (- (* (+ n 1) 14) 2) n)
-			*rects*)))
+    (let ((cube (create-cube (- (* (+ n 1) 14) 2) n)))
+      (vector-push-extend cube *cubes*)
+      (draw-cube cube))))
 
-(defun destroy-rects ()
-  (map 'vector (lambda (win)
-		 (xlib:destroy-window win)) 
-       *rects*)
-  (setf *rects* (make-array 1 :fill-pointer 0 :adjustable t))
+(defun destroy-cubes ()
+  (map 'vector (lambda (cube)
+		 (xlib:destroy-window (cube-window cube))) 
+       *cubes*)
+  (setf *cubes* (make-array 1 :fill-pointer 0 :adjustable t))
   (xlib:display-finish-output *display*))
 
-;; (defun make-rect-appear-focused (num)
-;;   (let* (win (aref *rects num))
-;;     (setf (xlib:window-background win)
+(defun cube-exposed () (dformat 0 "cube exposed"))
 
 (defun create-cube (x &optional (num 0))
   (let* ((screen (first (xlib:display-roots *display*)))
@@ -48,14 +47,18 @@
          (gcontext-toggled (xlib:create-gcontext :drawable win
 						 :font font
 						 :foreground (screen-bg-color (current-screen))
-						 :background (screen-fg-color (current-screen))))
-	 (cube (make-cube :state :normal
-			  :number num
-			  :window win
-			  :gcontext-normal gcontext-normal
-			  :gcontext-toggled gcontext-normal)))
-    cube))
+						 :background (screen-fg-color (current-screen)))))
+    (make-cube :state :normal
+	       :number num
+	       :window win
+	       :gcontext-normal gcontext-normal
+	       :gcontext-toggled gcontext-normal)))
 
+;;; cube events ;;;
+
+;; click
+
+;; exposure
 (defun draw-cube (cube)
   (let* ((win (cube-window cube))
 	 (gc  (cube-gcontext-normal cube))
@@ -64,7 +67,7 @@
     ;; sync window background with gc background
     (setf (xlib:window-background win) (xlib:gcontext-background gc))
     (xlib:map-window win)
-    ;; draw font
+    ;; draw text
     (xlib:clear-area win)
     (xlib:draw-image-glyphs  win gc 4
 			     (+ (xlib:font-ascent font) 1)
@@ -73,6 +76,13 @@
 			     :size 16))
   (xlib:display-finish-output *display*)
   t)
+
+
+;; helper functions
+(defun find-cube-window (win)
+  (find-if (lambda (cube)
+	     (eq (cube-window cube) win))
+	   *cubes*))
 
 (defun cube-test ()
   (let* (cube (create-cube 10))
