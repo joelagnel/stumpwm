@@ -2,6 +2,12 @@
 (export '(create-cube create-cubes destroy-cubes find-cube-window cube-clicked))
 
 (defparameter *cubes* '())
+(defparameter *cube-border-width* 1)
+(defparameter *cube-border-color* "Black")
+(defparameter *cube-background* "Dark Gray")
+(defparameter *cube-background-toggled* "Orange")
+(defparameter *cube-foreground* "Black")
+(defparameter *cube-foreground-toggled* "Black")
 
 (defstruct cube
   state
@@ -20,19 +26,22 @@
 	       :x x
 	       :y 0
 	       :width 13
-	       :height 13
-	       :background (screen-bg-color (current-screen))
-	       :border (alloc-color (current-screen) "Blue")
-	       :border-width 1
+	       :height 12
+	       :border (alloc-color (current-screen) *cube-border-color*)
+	       :border-width *cube-border-width*
 	       :event-mask (xlib:make-event-mask :exposure :button-press)))
-         (gcontext-normal (xlib:create-gcontext :drawable win
+	 (fg (alloc-color (current-screen) *cube-foreground*))
+	 (bg (alloc-color (current-screen) *cube-background*))
+	 (fg-toggled (alloc-color (current-screen) *cube-foreground-toggled*))
+	 (bg-toggled (alloc-color (current-screen) *cube-background-toggled*))
+	 (gcontext-normal (xlib:create-gcontext :drawable win
 						:font font
-						:foreground (screen-fg-color (current-screen))
-						:background (screen-bg-color (current-screen))))
-         (gcontext-toggled (xlib:create-gcontext :drawable win
+						:foreground fg
+						:background bg))
+	 (gcontext-toggled (xlib:create-gcontext :drawable win
 						 :font font
-						 :foreground (screen-bg-color (current-screen))
-						 :background (screen-fg-color (current-screen)))))
+						 :foreground fg-toggled
+						 :background bg-toggled)))
     (make-cube :state :normal
 	       :number num
 	       :window win
@@ -68,7 +77,7 @@
     ;; draw text
     (xlib:clear-area win)
     (xlib:draw-image-glyphs  win gc 4
-			     (+ (xlib:font-ascent font) 1)
+			     (xlib:font-ascent font)
 			     string
 			     :translate #'translate-id 
 			     :size 16)
@@ -79,9 +88,9 @@
 ;;; cube management 			      ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun create-cubes ()
+(defun create-cubes (offset)
   (dotimes (n 2)
-    (let ((cube (create-cube (+ (* (+ n 1) 14) 500) n)))
+    (let ((cube (create-cube (+ (* n 14) offset) n)))
       (setf *cubes* (append *cubes* (list cube)))
       (draw-cube cube))))
 
