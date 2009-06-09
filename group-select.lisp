@@ -10,19 +10,6 @@
   gcontext-normal
   gcontext-toggled)
 
-(defun create-cubes ()
-  (dotimes (n 10)
-    (let ((cube (create-cube (+ (* (+ n 1) 14) 200) n)))
-      (vector-push-extend cube *cubes*)
-      (draw-cube cube))))
-
-(defun destroy-cubes ()
-  (map 'vector (lambda (cube)
-		 (xlib:destroy-window (cube-window cube))) 
-       *cubes*)
-  (setf *cubes* (make-array 1 :fill-pointer 0 :adjustable t))
-  (xlib:display-finish-output *display*))
-
 (defun create-cube (x &optional (num 0))
   (let* ((screen (first (xlib:display-roots *display*)))
 	 (font (screen-font (current-screen)))
@@ -90,10 +77,36 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; helper functions 			      ;;
+;;; cube management 			      ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun create-cubes ()
+  (dotimes (n 10)
+    (let ((cube (create-cube (+ (* (+ n 1) 14) 200) n)))
+      (vector-push-extend cube *cubes*)
+      (draw-cube cube))))
+
+(defun destroy-cubes ()
+  (map 'vector (lambda (cube)
+		 (xlib:destroy-window (cube-window cube))) 
+       *cubes*)
+  (setf *cubes* (make-array 1 :fill-pointer 0 :adjustable t))
+  (xlib:display-finish-output *display*))
 
 (defun find-cube-window (win)
   (find-if (lambda (cube)
 	     (eq (cube-window cube) win))
 	   *cubes*))
+
+(defun find-cube-number (num)
+  (find-if (lambda (cube)
+	     (eq (cube-number cube) num))
+	   *cubes*))
+
+;; Delete a cube window and remove it from *cubes*
+(defun delete-cube-number (num)
+  (setf *cubes* (remove-if (lambda (cube)
+			     (if (eq (cube-number cube) num)
+				 (progn (xlib:destroy-window (cube-window cube)) t)))
+			   *cubes*))
+  (xlib:display-finish-output *display*))
