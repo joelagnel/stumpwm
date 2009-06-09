@@ -1,7 +1,7 @@
 (in-package :stumpwm)
 (export '(create-cube create-cubes destroy-cubes find-cube-window cube-clicked))
 
-(defparameter *cubes* (make-array 1 :fill-pointer 0 :adjustable t))
+(defparameter *cubes* '())
 
 (defstruct cube
   state
@@ -72,8 +72,7 @@
 			     string
 			     :translate #'translate-id 
 			     :size 16)
-    (xlib:display-finish-output *display*)
-    gc))
+    (xlib:display-finish-output *display*)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -81,16 +80,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun create-cubes ()
-  (dotimes (n 10)
-    (let ((cube (create-cube (+ (* (+ n 1) 14) 200) n)))
-      (vector-push-extend cube *cubes*)
+  (dotimes (n 2)
+    (let ((cube (create-cube (+ (* (+ n 1) 14) 500) n)))
+      (setf *cubes* (append *cubes* (list cube)))
       (draw-cube cube))))
 
 (defun destroy-cubes ()
-  (map 'vector (lambda (cube)
-		 (xlib:destroy-window (cube-window cube))) 
-       *cubes*)
-  (setf *cubes* (make-array 1 :fill-pointer 0 :adjustable t))
+  (setf *cubes* (remove-if (lambda (cube)
+			     (xlib:destroy-window (cube-window cube)) t)
+			   *cubes*))
   (xlib:display-finish-output *display*))
 
 (defun find-cube-window (win)
@@ -109,4 +107,18 @@
 			     (if (eq (cube-number cube) num)
 				 (progn (xlib:destroy-window (cube-window cube)) t)))
 			   *cubes*))
+  (unless (zerop (length *cubes*)) (rearrange-cubes))
   (xlib:display-finish-output *display*))
+
+(defun rearrange-cubes ()
+  (reduce (lambda (cube1 cube2)
+	    (let* ((cube1-win (cube-window cube1))
+		   (cube1-width (xlib:drawable-width cube1-win))
+		   (cube2-x (+ (xlib:drawable-x cube1-win) cube1-width)))
+	      (setf (xlib:drawable-x (cube-window cube2)) cube2-x))
+	    cube2)
+	  *cubes*)
+  (xlib:display-finish-output *display*))
+
+(defun redraw-cubes ()
+  (map (lambda (cube) (draw-cube cube)) *cubes*) t)
