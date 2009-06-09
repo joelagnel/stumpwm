@@ -4,7 +4,7 @@
 (defparameter *cubes* '())
 (defparameter *cube-border-width* 1)
 (defparameter *cube-border-color* "Black")
-(defparameter *cube-background* "Dark Gray")
+(defparameter *cube-background* "Gray")
 (defparameter *cube-background-toggled* "Orange")
 (defparameter *cube-foreground* "Black")
 (defparameter *cube-foreground-toggled* "Black")
@@ -54,6 +54,16 @@
 	((eq (cube-state cube) :toggled)
 	 (setf (cube-state cube) :normal))))
 
+(defun add-cube-number (num)
+  ;; (let* ((last-cube (car (last *cubes*)))
+  ;; (new-x (or (and last-cube (+ (xlib:drawable-x (cube-window last-cube))
+  ;; 			      (xlib:drawable-x (cube-window last-cube)))
+  ;; 		 0))
+  ;;   (cube (create-cube new-x num)))
+  (setf *cubes* (append *cubes* (list (create-cube 0 num))))
+  (rearrange-cubes)
+  (redraw-cubes))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; cube events 			      ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -61,8 +71,8 @@
 ;; click
 (defun cube-clicked (cube)
   (dformat 0 "cube ~a clicked~%" (cube-number cube))
-  (toggle-cube cube)
-  (draw-cube cube))
+  (let ((new-group (find (cube-number cube) (screen-groups (current-screen)) :key 'group-number)))
+    (and new-group (switch-to-group new-group))))
 
 ;; exposure
 (defun draw-cube (cube)
@@ -129,5 +139,40 @@
 	  *cubes*)
   (xlib:display-finish-output *display*))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Stumpwm environment   ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun current-mode-line ()
+  (dolist (h (screen-heads (current-screen)))
+    (let ((mode-line (head-mode-line h)))
+      (when mode-line
+	(return-from current-mode-line mode-line)))))
+
+(defun create-cubes-group ()
+  (setf *cubes* (mapcar (lambda (w) (let* ((cube (create-cube (* (group-number w) 14) (group-number w))))
+				      (and (eq w (current-group)) (toggle-cube cube))
+				      (draw-cube cube)
+				      cube))
+			(sort-groups (group-screen (mode-line-current-group (current-mode-line)))))))
+
+;; redraw cube windows
 (defun redraw-cubes ()
-  (map (lambda (cube) (draw-cube cube)) *cubes*) t)
+  (mapcar (lambda (cube)
+	    (setf (cube-state cube) 
+		  (if (eq (cube-number cube) (group-number (current-group)))
+		      :toggled
+		      :normal))
+	    (draw-cube cube))
+	  *cubes*))
+
+(defun init-cubes ()
+  ;; Group Switch hook
+  ;; To be moved to switch-to-group in group.lisp or update-mode-line
+  (add-hook *focus-group-hook* (lambda (new old) 
+				 (if (not (find-cube-number (group-number new)))
+				     (add-cube-number (group-number new)))
+				 (redraw-cubes)))
+  ;; Create cubes on init
+  (create-cubes-group))
+
