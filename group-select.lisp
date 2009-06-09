@@ -1,5 +1,5 @@
 (in-package :stumpwm)
-(export '(create-cube create-cubes destroy-cubes))
+(export '(create-cube create-cubes destroy-cubes find-cube-window cube-clicked))
 
 (defparameter *cubes* (make-array 1 :fill-pointer 0 :adjustable t))
 
@@ -12,7 +12,7 @@
 
 (defun create-cubes ()
   (dotimes (n 10)
-    (let ((cube (create-cube (- (* (+ n 1) 14) 2) n)))
+    (let ((cube (create-cube (+ (* (+ n 1) 14) 200) n)))
       (vector-push-extend cube *cubes*)
       (draw-cube cube))))
 
@@ -22,8 +22,6 @@
        *cubes*)
   (setf *cubes* (make-array 1 :fill-pointer 0 :adjustable t))
   (xlib:display-finish-output *display*))
-
-(defun cube-exposed () (dformat 0 "cube exposed"))
 
 (defun create-cube (x &optional (num 0))
   (let* ((screen (first (xlib:display-roots *display*)))
@@ -39,7 +37,7 @@
 	       :background (screen-bg-color (current-screen))
 	       :border (alloc-color (current-screen) "Blue")
 	       :border-width 1
-	       :event-mask (xlib:make-event-mask :exposure)))
+	       :event-mask (xlib:make-event-mask :exposure :button-press)))
          (gcontext-normal (xlib:create-gcontext :drawable win
 						:font font
 						:foreground (screen-fg-color (current-screen))
@@ -57,6 +55,8 @@
 ;;; cube events ;;;
 
 ;; click
+(defun cube-clicked (cube)
+  (dformat 0 "cube ~a clicked~%" (cube-number cube)))
 
 ;; exposure
 (defun draw-cube (cube)
