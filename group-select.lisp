@@ -1,7 +1,14 @@
 (in-package :stumpwm)
-(export '(make-rect-window))
+(export '(cube-test))
 
 (defparameter *rects* (make-array 1 :fill-pointer 0 :adjustable t))
+
+(defstruct cube
+   state
+   number
+   window
+   gcontext-normal
+   gcontext-toggled)
 
 (defun make-rects ()
   (dotimes (n 10)
@@ -19,40 +26,57 @@
 ;;   (let* (win (aref *rects num))
 ;;     (setf (xlib:window-background win)
 
-(defun make-rect-window (x &optional (num 0))
+(defun create-cube (x &optional (num 0))
   (let* ((screen (first (xlib:display-roots *display*)))
 	 (font (screen-font (current-screen)))
-	 (string (write-to-string num))
-	 (height (font-height font))
-	 (width (xlib:text-width font string))
 	 (parent (xlib:screen-root screen)) ;(mode-line-window mode-line))
-	 (rect (xlib:create-window
-		:parent parent
-		;; (mode-line-window (current-mode-line))
-		:x x
-		:y 0
-		:width 13
-		:height 13
-		:background (xlib:screen-black-pixel screen)
-		:border (alloc-color (current-screen) "Green")
-		:border-width 1
-		:event-mask (xlib:make-event-mask :exposure)))
-         (gcontext (xlib:create-gcontext :drawable rect
-                                         :font font
-                                         :foreground (screen-bg-color (current-screen))
-                                         :background (screen-fg-color (current-screen)))))
-    (xlib:map-window rect)
-    (draw-font-with-gcon rect font gcontext string)
-    (xlib:display-finish-output *display*)
-    rect))
+	 (win (xlib:create-window
+	       :parent parent
+	       ;; (mode-line-window (current-mode-line))
+	       :x x
+	       :y 0
+	       :width 13
+	       :height 13
+	       :background (screen-bg-color (current-screen))
+	       :border (alloc-color (current-screen) "Blue")
+	       :border-width 1
+	       :event-mask (xlib:make-event-mask :exposure)))
+         (gcontext-normal (xlib:create-gcontext :drawable win
+						:font font
+						:foreground (screen-fg-color (current-screen))
+						:background (screen-bg-color (current-screen))))
+         (gcontext-toggled (xlib:create-gcontext :drawable win
+						 :font font
+						 :foreground (screen-bg-color (current-screen))
+						 :background (screen-fg-color (current-screen))))
+	 (cube (make-cube :state :normal
+			  :number num
+			  :window win
+			  :gcontext-normal gcontext-normal
+			  :gcontext-toggled gcontext-normal)))
+    cube))
 
- (defun draw-font-with-gcon (win font gcontext string)
+(defun draw-cube (cube)
+  (let* ((win (cube-window cube))
+	 (gc  (cube-gcontext-normal cube))
+	 (font (xlib:gcontext-font gc))
+	 (string (write-to-string (cube-number cube))))
+    ;; sync window background with gc background
+    (setf (xlib:window-background win) (xlib:gcontext-background gc))
+    (xlib:map-window win)
+    ;; draw font
     (xlib:clear-area win)
-    (xlib:draw-image-glyphs  win gcontext 4
+    (xlib:draw-image-glyphs  win gc 4
 			     (+ (xlib:font-ascent font) 1)
-			     string 
+			     string
 			     :translate #'translate-id 
 			     :size 16))
+  (xlib:display-finish-output *display*)
+  t)
+
+(defun cube-test ()
+  (let* (cube (create-cube 10))
+    (draw-cube cube)))
 
 ;; (xlib:event-case (display :force-output-p t
 ;; 			      :discard-p t)
