@@ -56,8 +56,8 @@
 	((eq (cube-state cube) :toggled)
 	 (setf (cube-state cube) :normal))))
 
-(defun add-cube-number (num)
-  (setf *cubes* (append *cubes* (list (create-cube 0 num))))
+(defun add-cube-number (num ml)
+  (setf *cubes* (append *cubes* (list (create-cube 0 ml num))))
   (rearrange-cubes)
   (redraw-cubes))
 
@@ -171,7 +171,7 @@
   ;; To be moved to switch-to-group in group.lisp or update-mode-line
   (add-hook *focus-group-hook* (lambda (new old) 
 				 (if (not (find-cube-number (group-number new)))
-				     (add-cube-number (group-number new)))
+				     (add-cube-number (group-number new) (current-mode-line)))
 				 (redraw-cubes)))
   ;; Create cubes on init
   (create-cubes-group))
