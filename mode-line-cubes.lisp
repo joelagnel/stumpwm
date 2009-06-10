@@ -13,7 +13,6 @@
   state
   number
   window
-  mode-line
   gcontext-normal
   gcontext-toggled)
 
@@ -42,13 +41,16 @@
 	 (gcontext-toggled (xlib:create-gcontext :drawable win
 						 :font font
 						 :foreground fg-toggled
-						 :background bg-toggled)))
-    (make-cube :state :normal
-	       :number num
-	       :window win
- 	       :mode-line ml
-	       :gcontext-normal gcontext-normal
-	       :gcontext-toggled gcontext-toggled)))
+						 :background bg-toggled))
+	 (cube (make-cube :state :normal
+			  :number num
+			  :window win
+;			  :mode-line ml
+			  :gcontext-normal gcontext-normal
+			  :gcontext-toggled gcontext-toggled)))
+    (setf (xlib:window-plist win) (list 'cube cube))
+    cube))
+
 
 (defun toggle-cube (cube)
   (cond ((eq (cube-state cube) :normal)
@@ -59,8 +61,7 @@
 (defun add-cube-number (ml num)
   (check-type ml mode-line)
   (setf (mode-line-cubes ml) (append (mode-line-cubes ml) (list (create-cube 0 ml num))))
-  (rearrange-cubes ml)
-  (redraw-cubes ml))
+  (rearrange-cubes ml))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; cube events 			      ;;
@@ -78,8 +79,7 @@
 	 (gc  (or (and (eq (cube-state cube) :toggled) (cube-gcontext-toggled cube))
 		  (cube-gcontext-normal cube)))
 	 (font (xlib:gcontext-font gc))
-	 (screen (mode-line-screen (cube-mode-line cube)))
-	 (char-width (xlib:char-width (screen-font screen) 0))
+	 (char-width (xlib:char-width font 0))
 	 (string (write-to-string (cube-number cube))))
     ;; sync window background with gc background
     (setf (xlib:window-background win) (xlib:gcontext-background gc))
@@ -93,7 +93,6 @@
 			     :size 16)
     (xlib:display-finish-output *display*)))
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; cube management 			      ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -105,10 +104,8 @@
 	*focus-group-hook* nil)
   (xlib:display-finish-output *display*))
 
-(defun find-cube-window (ml win)
-  (find-if (lambda (cube)
-	     (eq (cube-window cube) win))
-	   (mode-line-cubes ml)))
+(defun find-cube-window (win)
+   (second (xlib:window-plist win)))
 
 (defun find-cube-number (ml num)
   (find-if (lambda (cube)
@@ -124,7 +121,10 @@
   (unless (zerop (length (mode-line-cubes ml))) (rearrange-cubes ml))
   (xlib:display-finish-output *display*))
 
-(defun rearrange-cubes (ml)
+(defun rearrange-cubes (ml &optional (x 0))
+  (and (mode-line-cubes ml)
+       (setf (xlib:drawable-x (cube-window (first (mode-line-cubes ml))))  
+	     x))
   (reduce (lambda (cube1 cube2)
 	    (let* ((cube1-win (cube-window cube1))
 		   (cube1-width (xlib:drawable-width cube1-win))
@@ -132,6 +132,7 @@
 	      (setf (xlib:drawable-x (cube-window cube2)) cube2-x))
 	    cube2)
 	  (mode-line-cubes ml))
+  (redraw-cubes ml)
   (xlib:display-finish-output *display*))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -143,11 +144,12 @@
 	  (screen-heads (group-screen group))))
 
 (defun create-mode-line-cubes (ml)
-  (setf (mode-line-cubes ml)
-	(mapcar (lambda (w) (create-cube 0 ml (group-number w)))
-		(sort-groups (group-screen (mode-line-current-group ml)))))
-  (rearrange-cubes ml)
-  (redraw-cubes ml))
+  (format t "drawing cubes ....")
+  ;;  (setf (mode-line-cubes ml)
+  (setf (mode-line-cubes ml) (mapcar (lambda (w)
+				       (format t "creating cube ~a for ~a~%" (group-number w) ml)
+				       (create-cube 0 ml (group-number w)))
+				     (sort-groups (group-screen (mode-line-current-group ml))))))
 
 ;; redraw cube windows
 (defun redraw-cubes (ml)
@@ -159,14 +161,14 @@
 	    (draw-cube cube))
 	  (mode-line-cubes ml)))
 
-(defun add-cube-switch-hook (ml)
+(defun add-cube-switch-hook ()
   ;; Group Switch hook
   ;; To be moved to switch-to-group in group.lisp or update-mode-line
   (add-hook *focus-group-hook* (lambda (new old) 
 				 (mapcar (lambda (ml)
 					   (when (not (find-cube-number ml (group-number new)))
-					     (add-cube-number ml (group-number new))
-					     (redraw-cubes ml)))
+					     (add-cube-number ml (group-number new)))
+					   (redraw-cubes ml))
 					 (group-mode-lines new)))))
 
 (defun current-mode-line ()

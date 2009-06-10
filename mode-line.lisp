@@ -382,6 +382,7 @@ critical."
         (setf width (render-strings (mode-line-screen ml) (mode-line-cc ml)
 				    *mode-line-pad-x*     *mode-line-pad-y*
 				    (split-string string (string #\Newline)) '()))
+	(rearrange-cubes ml (+ width 10))
         (dformat 0 "mode line redrawn.. render width ~a~%" width)))))
 
 (defun find-mode-line-window (xwin)
@@ -511,11 +512,15 @@ critical."
           (update-mode-line-color-context (head-mode-line head))
           (resize-mode-line (head-mode-line head))
           (xlib:map-window (mode-line-window (head-mode-line head)))
-          (redraw-mode-line (head-mode-line head))
+
+	  ;; cubes
+	  (add-cube-switch-hook)
 	  (create-mode-line-cubes (head-mode-line head))
-          (dformat 3 "modeline: ~s~%" (head-mode-line head))
-          ;; setup the timer
-          (turn-on-mode-line-timer)))
+
+	  (redraw-mode-line (head-mode-line head))
+	  (dformat 3 "modeline: ~s~%" (head-mode-line head))
+	  ;; setup the timer
+	  (turn-on-mode-line-timer)))
     (dolist (group (screen-groups screen))
       (group-sync-head group head))))
 
