@@ -13,27 +13,28 @@
   state
   number
   window
+  mode-line
   gcontext-normal
   gcontext-toggled)
 
-(defun create-cube (x &optional (num 0))
-  (let* ((screen (first (xlib:display-roots *display*)))
-	 (font (screen-font (current-screen)))
-	 (parent (xlib:screen-root screen)) ;(mode-line-window mode-line))
+(defun create-cube (x ml &optional (num 0))
+  "Create a cube at position x on mode-line ml"
+  (let* ((screen (mode-line-screen ml))
+	 (font (screen-font screen))
+	 (parent (mode-line-window ml))
 	 (win (xlib:create-window
 	       :parent parent
-	       ;; (mode-line-window (current-mode-line))
 	       :x x
 	       :y 0
-	       :width 13
-	       :height 12
-	       :border (alloc-color (current-screen) *cube-border-color*)
+	       :width  (* (xlib:char-width (screen-font screen) 0) 2)
+	       :height (mode-line-height ml)
+	       :border (alloc-color screen *cube-border-color*)
 	       :border-width *cube-border-width*
 	       :event-mask (xlib:make-event-mask :exposure :button-press)))
-	 (fg (alloc-color (current-screen) *cube-foreground*))
-	 (bg (alloc-color (current-screen) *cube-background*))
-	 (fg-toggled (alloc-color (current-screen) *cube-foreground-toggled*))
-	 (bg-toggled (alloc-color (current-screen) *cube-background-toggled*))
+	 (fg (alloc-color screen *cube-foreground*))
+	 (bg (alloc-color screen *cube-background*))
+	 (fg-toggled (alloc-color screen *cube-foreground-toggled*))
+	 (bg-toggled (alloc-color screen *cube-background-toggled*))
 	 (gcontext-normal (xlib:create-gcontext :drawable win
 						:font font
 						:foreground fg
@@ -45,6 +46,7 @@
     (make-cube :state :normal
 	       :number num
 	       :window win
+ 	       :mode-line ml
 	       :gcontext-normal gcontext-normal
 	       :gcontext-toggled gcontext-toggled)))
 
@@ -55,11 +57,6 @@
 	 (setf (cube-state cube) :normal))))
 
 (defun add-cube-number (num)
-  ;; (let* ((last-cube (car (last *cubes*)))
-  ;; (new-x (or (and last-cube (+ (xlib:drawable-x (cube-window last-cube))
-  ;; 			      (xlib:drawable-x (cube-window last-cube)))
-  ;; 		 0))
-  ;;   (cube (create-cube new-x num)))
   (setf *cubes* (append *cubes* (list (create-cube 0 num))))
   (rearrange-cubes)
   (redraw-cubes))
@@ -80,13 +77,15 @@
 	 (gc  (or (and (eq (cube-state cube) :toggled) (cube-gcontext-toggled cube))
 		  (cube-gcontext-normal cube)))
 	 (font (xlib:gcontext-font gc))
+	 (screen (mode-line-screen (cube-mode-line cube)))
+	 (char-width (xlib:char-width (screen-font screen) 0))
 	 (string (write-to-string (cube-number cube))))
     ;; sync window background with gc background
     (setf (xlib:window-background win) (xlib:gcontext-background gc))
     (xlib:map-window win)
     ;; draw text
     (xlib:clear-area win)
-    (xlib:draw-image-glyphs  win gc 4
+    (xlib:draw-image-glyphs  win gc (round (/ char-width 2)) ;; char-width / 2 draws font at center
 			     (xlib:font-ascent font)
 			     string
 			     :translate #'translate-id 
@@ -107,7 +106,8 @@
 (defun destroy-cubes ()
   (setf *cubes* (remove-if (lambda (cube)
 			     (xlib:destroy-window (cube-window cube)) t)
-			   *cubes*))
+			   *cubes*)
+	*focus-group-hook* nil)
   (xlib:display-finish-output *display*))
 
 (defun find-cube-window (win)
@@ -150,11 +150,11 @@
 	(return-from current-mode-line mode-line)))))
 
 (defun create-cubes-group ()
-  (setf *cubes* (mapcar (lambda (w) (let* ((cube (create-cube (* (group-number w) 14) (group-number w))))
-				      (and (eq w (current-group)) (toggle-cube cube))
-				      (draw-cube cube)
-				      cube))
-			(sort-groups (group-screen (mode-line-current-group (current-mode-line)))))))
+  (setf *cubes*
+	(mapcar (lambda (w) (create-cube 0 (current-mode-line) (group-number w)))
+		(sort-groups (group-screen (mode-line-current-group (current-mode-line))))))
+  (rearrange-cubes)
+  (redraw-cubes))
 
 ;; redraw cube windows
 (defun redraw-cubes ()
