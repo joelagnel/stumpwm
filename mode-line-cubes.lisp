@@ -160,15 +160,17 @@
 	    (draw-cube cube))
 	  (mode-line-cubes ml)))
 
-(defun add-cube-switch-hook ()
+(defun cube-switch (new old)
+  (mapcar (lambda (ml)
+	    ;; FIXME: cache group number
+	    (if (not (find-cube-number ml (group-number new)))
+		(add-cube-number ml (group-number new))
+		(redraw-cubes ml)))
+	  (group-mode-lines new)))
+
+
+(defun add-cube-switch-hook () 
   ;; Group Switch hook
   ;; To be moved to switch-to-group in group.lisp or update-mode-line
-  (add-hook *focus-group-hook* (lambda (new old) 
-				 (mapcar (lambda (ml)
-					   ;; FIXME: cache group number
-					   (when (not (find-cube-number ml (group-number new)))
-					     (add-cube-number ml (group-number new))))
-					 ;; FIXME: Redraw only cubes that have to be
-					 ;;					   (redraw-cubes ml))
-					 (group-mode-lines new)))))
+  (add-hook *focus-group-hook* (lambda (new old) (cube-switch new old))))
 
