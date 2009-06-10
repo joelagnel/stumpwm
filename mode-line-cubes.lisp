@@ -18,7 +18,7 @@
   gcontext-toggled)
 
 (defun create-cube (x ml &optional (num 0))
-  "Create a cube at position x on mode-line ml"
+  "Create cube numer num at position x on mode-line ml"
   (let* ((screen (mode-line-screen ml))
 	 (font (screen-font screen))
 	 (parent (mode-line-window ml))
@@ -56,10 +56,11 @@
 	((eq (cube-state cube) :toggled)
 	 (setf (cube-state cube) :normal))))
 
-(defun add-cube-number (num ml)
-  (setf *cubes* (append *cubes* (list (create-cube 0 ml num))))
-  (rearrange-cubes)
-  (redraw-cubes))
+(defun add-cube-number (ml num)
+  (check-type ml mode-line)
+  (setf (mode-line-cubes ml) (append (mode-line-cubes ml) (list (create-cube 0 ml num))))
+  (rearrange-cubes ml)
+  (redraw-cubes ml))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; cube events 			      ;;
@@ -85,7 +86,7 @@
     (xlib:map-window win)
     ;; draw text
     (xlib:clear-area win)
-    (xlib:draw-image-glyphs  win gc (round (/ char-width 2)) ;; char-width / 2 draws font at center
+    (xlib:draw-image-glyphs  win gc (round (/ char-width 2)) ;; char-width / 2 draws at center
 			     (xlib:font-ascent font)
 			     string
 			     :translate #'translate-id 
@@ -97,82 +98,80 @@
 ;;; cube management 			      ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun create-cubes (offset)
-  (dotimes (n 2)
-    (let ((cube (create-cube (+ (* n 14) offset) n)))
-      (setf *cubes* (append *cubes* (list cube)))
-      (draw-cube cube))))
-
-(defun destroy-cubes ()
-  (setf *cubes* (remove-if (lambda (cube)
-			     (xlib:destroy-window (cube-window cube)) t)
-			   *cubes*)
+(defun destroy-cubes (ml)
+  (setf (mode-line-cubes ml) (remove-if (lambda (cube)
+					  (xlib:destroy-window (cube-window cube)) t)
+					(mode-line-cubes ml))
 	*focus-group-hook* nil)
   (xlib:display-finish-output *display*))
 
-(defun find-cube-window (win)
+(defun find-cube-window (ml win)
   (find-if (lambda (cube)
 	     (eq (cube-window cube) win))
-	   *cubes*))
+	   (mode-line-cubes ml)))
 
-(defun find-cube-number (num)
+(defun find-cube-number (ml num)
   (find-if (lambda (cube)
 	     (eq (cube-number cube) num))
-	   *cubes*))
+	   (mode-line-cubes ml)))
 
 ;; Delete a cube window and remove it from *cubes*
-(defun delete-cube-number (num)
-  (setf *cubes* (remove-if (lambda (cube)
+(defun delete-cube-number (ml num)
+  (setf (mode-line-cubes ml) (remove-if (lambda (cube)
 			     (if (eq (cube-number cube) num)
 				 (progn (xlib:destroy-window (cube-window cube)) t)))
-			   *cubes*))
-  (unless (zerop (length *cubes*)) (rearrange-cubes))
+			   (mode-line-cubes ml)))
+  (unless (zerop (length (mode-line-cubes ml))) (rearrange-cubes ml))
   (xlib:display-finish-output *display*))
 
-(defun rearrange-cubes ()
+(defun rearrange-cubes (ml)
   (reduce (lambda (cube1 cube2)
 	    (let* ((cube1-win (cube-window cube1))
 		   (cube1-width (xlib:drawable-width cube1-win))
 		   (cube2-x (+ (xlib:drawable-x cube1-win) cube1-width)))
 	      (setf (xlib:drawable-x (cube-window cube2)) cube2-x))
 	    cube2)
-	  *cubes*)
+	  (mode-line-cubes ml))
   (xlib:display-finish-output *display*))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Stumpwm environment   ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun current-mode-line ()
-  (dolist (h (screen-heads (current-screen)))
-    (let ((mode-line (head-mode-line h)))
-      (when mode-line
-	(return-from current-mode-line mode-line)))))
+(defun group-mode-lines (group)
+  (mapcar (lambda (head) (head-mode-line head))
+	  (screen-heads (group-screen group))))
 
-(defun create-cubes-group ()
-  (setf *cubes*
-	(mapcar (lambda (w) (create-cube 0 (current-mode-line) (group-number w)))
-		(sort-groups (group-screen (mode-line-current-group (current-mode-line))))))
-  (rearrange-cubes)
-  (redraw-cubes))
+(defun create-mode-line-cubes (ml)
+  (setf (mode-line-cubes ml)
+	(mapcar (lambda (w) (create-cube 0 ml (group-number w)))
+		(sort-groups (group-screen (mode-line-current-group ml)))))
+  (rearrange-cubes ml)
+  (redraw-cubes ml))
 
 ;; redraw cube windows
-(defun redraw-cubes ()
+(defun redraw-cubes (ml)
   (mapcar (lambda (cube)
 	    (setf (cube-state cube) 
 		  (if (eq (cube-number cube) (group-number (current-group)))
 		      :toggled
 		      :normal))
 	    (draw-cube cube))
-	  *cubes*))
+	  (mode-line-cubes ml)))
 
-(defun init-cubes ()
+(defun add-cube-switch-hook (ml)
   ;; Group Switch hook
   ;; To be moved to switch-to-group in group.lisp or update-mode-line
   (add-hook *focus-group-hook* (lambda (new old) 
-				 (if (not (find-cube-number (group-number new)))
-				     (add-cube-number (group-number new) (current-mode-line)))
-				 (redraw-cubes)))
-  ;; Create cubes on init
-  (create-cubes-group))
+				 (mapcar (lambda (ml)
+					   (when (not (find-cube-number ml (group-number new)))
+					     (add-cube-number ml (group-number new))
+					     (redraw-cubes ml)))
+					 (group-mode-lines new)))))
+
+(defun current-mode-line ()
+  (dolist (h (screen-heads (current-screen)))
+    (let ((mode-line (head-mode-line h)))
+      (when mode-line
+	(return-from current-mode-line mode-line)))))
 

@@ -46,6 +46,7 @@
   cc
   height
   factor
+  cubes
   (mode :stump))
 
 (defun mode-line-gc (ml)
@@ -378,9 +379,10 @@ critical."
       (when (or force (not (string= (mode-line-contents ml) string)))
         (setf (mode-line-contents ml) string)
         (resize-mode-line ml)
-        (render-strings (mode-line-screen ml) (mode-line-cc ml)
-                        *mode-line-pad-x*     *mode-line-pad-y*
-                        (split-string string (string #\Newline)) '())))))
+        (setf width (render-strings (mode-line-screen ml) (mode-line-cc ml)
+				    *mode-line-pad-x*     *mode-line-pad-y*
+				    (split-string string (string #\Newline)) '()))
+        (dformat 0 "mode line redrawn.. render width ~a~%" width)))))
 
 (defun find-mode-line-window (xwin)
   (dolist (s *screen-list*)
@@ -510,6 +512,7 @@ critical."
           (resize-mode-line (head-mode-line head))
           (xlib:map-window (mode-line-window (head-mode-line head)))
           (redraw-mode-line (head-mode-line head))
+	  (create-mode-line-cubes (head-mode-line head))
           (dformat 3 "modeline: ~s~%" (head-mode-line head))
           ;; setup the timer
           (turn-on-mode-line-timer)))
