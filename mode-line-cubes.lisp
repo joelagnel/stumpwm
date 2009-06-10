@@ -60,8 +60,7 @@
 
 (defun add-cube-number (ml num)
   (check-type ml mode-line)
-  (setf (mode-line-cubes ml) (append (mode-line-cubes ml) (list (create-cube 0 ml num))))
-  (rearrange-cubes ml))
+  (setf (mode-line-cubes ml) (append (mode-line-cubes ml) (list (create-cube 0 ml num)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; cube events 			      ;;
@@ -166,14 +165,10 @@
   ;; To be moved to switch-to-group in group.lisp or update-mode-line
   (add-hook *focus-group-hook* (lambda (new old) 
 				 (mapcar (lambda (ml)
+					   ;; FIXME: cache group number
 					   (when (not (find-cube-number ml (group-number new)))
-					     (add-cube-number ml (group-number new)))
-					   (redraw-cubes ml))
+					     (add-cube-number ml (group-number new))))
+					 ;; FIXME: Redraw only cubes that have to be
+					 ;;					   (redraw-cubes ml))
 					 (group-mode-lines new)))))
-
-(defun current-mode-line ()
-  (dolist (h (screen-heads (current-screen)))
-    (let ((mode-line (head-mode-line h)))
-      (when mode-line
-	(return-from current-mode-line mode-line)))))
 
