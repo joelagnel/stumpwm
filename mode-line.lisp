@@ -504,12 +504,12 @@ critical."
           (update-mode-line-color-context (head-mode-line head))
           (resize-mode-line (head-mode-line head))
           (xlib:map-window (mode-line-window (head-mode-line head)))
-	  (add-cube-switch-hook)
-	  (create-mode-line-cubes (head-mode-line head))
-	  (redraw-mode-line (head-mode-line head))
-	  (dformat 3 "modeline: ~s~%" (head-mode-line head))
-	  ;; setup the timer
-	  (turn-on-mode-line-timer)))
+          (add-cube-switch-hook)
+          (create-mode-line-cubes (head-mode-line head))
+          (redraw-mode-line (head-mode-line head))
+          (dformat 3 "modeline: ~s~%" (head-mode-line head))
+          ;; setup the timer
+          (turn-on-mode-line-timer)))
     (dolist (group (screen-groups screen))
       (group-sync-head group head))))
 
