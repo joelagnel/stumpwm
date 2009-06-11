@@ -2,21 +2,26 @@
 (export '(create-cube create-cubes destroy-cubes find-cube-window cube-clicked))
 
 (defparameter *cubes* '())
+;; border
 (defparameter *cube-border-width* 1)
 (defparameter *cube-border-color* "Black")
+;; colors
 (defparameter *cube-background* "Gray")
 (defparameter *cube-background-toggled* "Orange")
 (defparameter *cube-foreground* "Black")
 (defparameter *cube-foreground-toggled* "Black")
+;; other configuration
+(defparameter *cube-disp-name* t)
 
 (defstruct cube
   state
   number
+  name
   window
   gcontext-normal
   gcontext-toggled)
 
-(defun create-cube (x ml &optional (num 0))
+(defun create-cube (x ml &optional (num 0) (name ""))
   "Create cube numer num at position x on mode-line ml"
   (let* ((screen (mode-line-screen ml))
 	 (font (screen-font screen))
@@ -44,6 +49,7 @@
 						 :background bg-toggled))
 	 (cube (make-cube :state :normal
 			  :number num
+			  :name name
 			  :window win
 ;			  :mode-line ml
 			  :gcontext-normal gcontext-normal
@@ -78,8 +84,20 @@
 	 (gc  (or (and (eq (cube-state cube) :toggled) (cube-gcontext-toggled cube))
 		  (cube-gcontext-normal cube)))
 	 (font (xlib:gcontext-font gc))
+					;(xlib:char-width font 0))
+	 (string (write-to-string (cube-number cube)))
 	 (char-width (xlib:char-width font 0))
-	 (string (write-to-string (cube-number cube))))
+	 text-width window-width)
+    ;; Calculate expected window width
+    (if *cube-disp-name*
+	(setf string (concat "[" string "]" (cube-name cube))))
+    (setf text-width (xlib:text-width font string))
+    (setf window-width (+ text-width
+			  char-width))
+    ;; If present is any different, change it.
+    (unless (eq (xlib:drawable-width win) window-width)
+      (setf (xlib:drawable-width win) window-width))
+
     ;; sync window background with gc background
     (setf (xlib:window-background win) (xlib:gcontext-background gc))
     (xlib:map-window win)
@@ -147,7 +165,7 @@
   ;;  (setf (mode-line-cubes ml)
   (setf (mode-line-cubes ml) (mapcar (lambda (w)
 				       (format t "creating cube ~a for ~a~%" (group-number w) ml)
-				       (create-cube 0 ml (group-number w)))
+				       (create-cube 0 ml (group-number w) (group-name w)))
 				     (sort-groups (group-screen (mode-line-current-group ml))))))
 
 ;; redraw cube windows
