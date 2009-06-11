@@ -444,8 +444,8 @@ to the next group."
 The windows will be moved to group \"^B^2*~a^n\"
 ^B^6*Confirm?^n " (group-name dead-group) (group-name to-group))))
 	(progn
-	  (switch-to-group to-group)
 	  (kill-group dead-group to-group)
+	  (switch-to-group to-group)
 	  (message "Deleted"))
 	(message "Canceled")))))
 
