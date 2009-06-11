@@ -48,6 +48,7 @@
                (:file "fdump")
 	       (:file "time")
 	       (:file "mode-line")
+	       (:file "mode-line-cubes")
 	       (:file "color")
                (:file "module")
 	       (:file "stumpwm")

@@ -23,8 +23,8 @@ keytrans.lisp kmap.lisp input.lisp core.lisp command.lisp menu.lisp	\
 screen.lisp group.lisp window.lisp floating-group.lisp			\
 tile-window.lisp window-placement.lisp message-window.lisp		\
 selection.lisp user.lisp iresize.lisp bindings.lisp events.lisp		\
-help.lisp fdump.lisp mode-line.lisp time.lisp color.lisp module.lisp	\
-stumpwm.lisp version.lisp
+help.lisp fdump.lisp mode-line.lisp mode-line-cubes.lisp  time.lisp     \
+color.lisp module.lisp stumpwm.lisp version.lisp
 
 all: stumpwm stumpwm.info
 
