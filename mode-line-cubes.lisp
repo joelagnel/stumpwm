@@ -66,7 +66,9 @@
 	 (setf (cube-state cube) :normal))))
 
 (defun add-cube-group (ml group)
-  (setf (mode-line-cubes ml) (append (mode-line-cubes ml) (list (create-cube ml group)))))
+  (setf (mode-line-cubes ml)
+	(sort (append (mode-line-cubes ml) (list (create-cube ml group)))
+	      #'< :key 'cube-number)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; cube events 			      ;;
