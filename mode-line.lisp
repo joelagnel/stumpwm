@@ -382,8 +382,7 @@ critical."
         (setf width (render-strings (mode-line-screen ml) (mode-line-cc ml)
 				    *mode-line-pad-x*     *mode-line-pad-y*
 				    (split-string string (string #\Newline)) '()))
-	(rearrange-cubes ml (+ width 10))
-        (dformat 0 "mode line redrawn.. render width ~a~%" width)))))
+	(rearrange-cubes ml (+ width 10))))))
 
 (defun find-mode-line-window (xwin)
   (dolist (s *screen-list*)
