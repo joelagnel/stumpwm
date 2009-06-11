@@ -104,7 +104,7 @@
     (xlib:draw-image-glyphs  win gc (round (/ char-width 2)) ;; char-width / 2 draws at center
                              (xlib:font-ascent font)
                              string
-                             :translate #'translate-id 
+                             :translate #'translate-id
                              :size 16)
     (xlib:display-finish-output *display*)))
 
@@ -144,7 +144,7 @@
 (defun rearrange-cubes (ml &optional (x 0))
   (and
    (mode-line-cubes ml)
-   (progn (setf (xlib:drawable-x (cube-window (first (mode-line-cubes ml))))  
+   (progn (setf (xlib:drawable-x (cube-window (first (mode-line-cubes ml))))
                 x)
           (reduce (lambda (cube1 cube2)
                     (let* ((cube1-win (cube-window cube1))
@@ -154,7 +154,7 @@
                     cube2)
                   (mode-line-cubes ml))
           (redraw-cubes ml)
-          (xlib:display-finish-output *display*))))  
+          (xlib:display-finish-output *display*))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Stumpwm environment   ;;
@@ -175,7 +175,7 @@
 ;; redraw cube windows
 (defun redraw-cubes (ml)
   (mapcar (lambda (cube)
-            (setf (cube-state cube) 
+            (setf (cube-state cube)
                   (if (eq (cube-number cube) (group-number (current-group)))
                       :toggled
                       :normal))
@@ -193,7 +193,7 @@
                   (delete-cube ml old 'cube-group)))
             (group-mode-lines new))))
 
-(defun add-cube-switch-hook () 
+(defun add-cube-switch-hook ()
   ;; Group Switch hook
   ;; To be moved to switch-to-group in group.lisp or update-mode-line
   (add-hook *focus-group-hook* (lambda (new old) (cube-switch new old))))
