@@ -1,3 +1,5 @@
+;;; Modeline cubes - A group switcher widget for the mode-line
+
 (in-package :stumpwm)
 (export '(create-cube create-cubes destroy-cubes find-cube-window cube-clicked))
 
@@ -76,7 +78,6 @@
 
 ;; click
 (defun cube-clicked (cube)
-  (dformat 0 "cube ~a clicked~%" (cube-number cube))
   (let ((new-group (find (cube-number cube) (screen-groups (current-screen)) :key 'group-number)))
     (and new-group (switch-to-group new-group))))
 
@@ -183,7 +184,6 @@
 
 (defun cube-switch (new old)
   (let ((old-group-exists (group-exists-p old)))
-    (dformat 0 "old group ~a exists? ~a~%" (group-name old) old-group-exists)
     (mapcar (lambda (ml)
 	      ;; FIXME: cache group number
 	      (if (not (find-cube-number ml (group-number new)))
