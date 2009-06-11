@@ -33,8 +33,7 @@
           add-screen-mode-line-formatter
 	  enable-mode-line
 	  toggle-mode-line
-	  bar-zone-color
-	  current-mode-line))
+	  bar-zone-color))
 
 (defstruct mode-line
   screen
@@ -457,12 +456,6 @@ critical."
     (let ((mode-line (head-mode-line h)))
       (when mode-line
         (redraw-mode-line mode-line)))))
-
-(defun current-mode-line ()
-  (dolist (h (screen-heads (current-screen)))
-    (let ((mode-line (head-mode-line h)))
-      (when mode-line
-	(return-from current-mode-line mode-line)))))
 
 (defun update-all-mode-lines ()
   "Update all mode lines."
