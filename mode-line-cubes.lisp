@@ -58,7 +58,7 @@
                                         ;     :mode-line ml
                           :gcontext-normal gcontext-normal
                           :gcontext-toggled gcontext-toggled))
-	 (pixmap nil))
+         (pixmap nil))
     (setf (xlib:window-plist win) (list 'cube cube 'pixmap pixmap))
     cube))
 
@@ -100,14 +100,14 @@
       (setf (xlib:drawable-width win) window-width))
     ;; create pixmap if required
     (when (or (not px)
-	      (/= (xlib:drawable-width px) (xlib:drawable-width win))
-	      (/= (xlib:drawable-height px) (xlib:drawable-height win)))
+              (/= (xlib:drawable-width px) (xlib:drawable-width win))
+              (/= (xlib:drawable-height px) (xlib:drawable-height win)))
       (setf px (xlib:create-pixmap
-		:drawable win
-		:width (xlib:drawable-width win)
-		:height (xlib:drawable-height win)
-		:depth (xlib:drawable-depth win))
-	    (getf (xlib:window-plist win) 'pixmap) px))
+                :drawable win
+                :width (xlib:drawable-width win)
+                :height (xlib:drawable-height win)
+                :depth (xlib:drawable-depth win))
+            (getf (xlib:window-plist win) 'pixmap) px))
 
     ;; sync window background with gc background
     (setf (xlib:window-background win) (xlib:gcontext-background gc))
@@ -198,16 +198,16 @@
 
 (defun cube-switch (new old)
   (let ((mls (mapcar (lambda (head) (head-mode-line head))
-		     (screen-heads (group-screen new)))))
+                     (screen-heads (group-screen new)))))
     (mapcar (lambda (ml)
-	      (when ml
-		;; Create cube for a new group
-		(if (not (find-cube-group ml new))
-		    (add-cube-group ml new)
-		    (redraw-cubes ml))
-		;; Delete cube if 'old' group doesn't exist
-		(if (not (find old (screen-groups (group-screen new))))
-		    (delete-cube ml old 'cube-group))))
+              (when ml
+                ;; Create cube for a new group
+                (if (not (find-cube-group ml new))
+                    (add-cube-group ml new)
+                    (redraw-cubes ml))
+                ;; Delete cube if 'old' group doesn't exist
+                (if (not (find old (screen-groups (group-screen new))))
+                    (delete-cube ml old 'cube-group))))
             mls)))
 
 (defun add-cube-switch-hook ()
