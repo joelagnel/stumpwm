@@ -131,6 +131,11 @@
              (eq (cube-number cube) num))
            (mode-line-cubes ml)))
 
+(defun find-cube-group (ml group)
+  (find-if (lambda (cube)
+             (eq (cube-group cube) group))
+           (mode-line-cubes ml)))
+
 ;; Delete a cube window and remove it from *cubes*
 ;; Apply key on each cube and delete if = arg
 (defun delete-cube (ml arg key)
@@ -185,12 +190,13 @@
 (defun cube-switch (new old)
   (let ((old-group-exists (group-exists-p old)))
     (mapcar (lambda (ml)
-              ;; FIXME: cache group number
-              (if (not (find-cube-number ml (group-number new)))
-                  (add-cube-group ml new)
-                  (redraw-cubes ml))
-              (if (not old-group-exists)
-                  (delete-cube ml old 'cube-group)))
+	      (when ml
+		;; FIXME: use group object, not number
+		(if (not (find-cube-number ml (group-number new)))
+		    (add-cube-group ml new)
+		    (redraw-cubes ml))
+		(if (not old-group-exists)
+		    (delete-cube ml old 'cube-group))))
             (group-mode-lines new))))
 
 (defun add-cube-switch-hook ()
