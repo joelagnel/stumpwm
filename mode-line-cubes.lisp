@@ -57,8 +57,9 @@
                           :window win
                                         ;     :mode-line ml
                           :gcontext-normal gcontext-normal
-                          :gcontext-toggled gcontext-toggled)))
-    (setf (xlib:window-plist win) (list 'cube cube))
+                          :gcontext-toggled gcontext-toggled))
+	 (pixmap nil))
+    (setf (xlib:window-plist win) (list 'cube cube 'pixmap pixmap))
     cube))
 
 (defun toggle-cube (cube)
@@ -84,6 +85,7 @@
 ;; exposure
 (defun draw-cube (cube)
   (let* ((win (cube-window cube))
+         (px (getf (xlib:window-plist win) 'pixmap))
          (gc  (or (and (eq (cube-state cube) :toggled) (cube-gcontext-toggled cube))
                   (cube-gcontext-normal cube)))
          (font (xlib:gcontext-font gc))
@@ -96,16 +98,30 @@
     ;; change window width if different
     (unless (eq (xlib:drawable-width win) window-width)
       (setf (xlib:drawable-width win) window-width))
+    ;; create pixmap if required
+    (when (or (not px)
+	      (/= (xlib:drawable-width px) (xlib:drawable-width win))
+	      (/= (xlib:drawable-height px) (xlib:drawable-height win)))
+      (setf px (xlib:create-pixmap
+		:drawable win
+		:width (xlib:drawable-width win)
+		:height (xlib:drawable-height win)
+		:depth (xlib:drawable-depth win))
+	    (getf (xlib:window-plist win) 'pixmap) px))
+
     ;; sync window background with gc background
     (setf (xlib:window-background win) (xlib:gcontext-background gc))
     (xlib:map-window win)
     ;; draw text
     (xlib:clear-area win)
-    (xlib:draw-image-glyphs  win gc (round (/ char-width 2)) ;; char-width / 2 draws at center
+    (xlib:with-gcontext (gc :foreground (xlib:gcontext-background gc))
+      (xlib:draw-rectangle px gc 0 0 (xlib:drawable-width px) (xlib:drawable-height px) t))
+    (xlib:draw-image-glyphs  px gc (round (/ char-width 2)) ;; char-width / 2 draws at center
                              (xlib:font-ascent font)
                              string
                              :translate #'translate-id
                              :size 16)
+    (xlib:copy-area px gc 0 0 (xlib:drawable-width px) (xlib:drawable-height px) win 0 0)
     (xlib:display-finish-output *display*)))
 
 (defun cube-string (cube)
