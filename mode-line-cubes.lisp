@@ -74,7 +74,7 @@
               #'< :key 'cube-number)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; cube events          ;;
+;;; cube events                               ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; click
@@ -130,7 +130,7 @@
       (format-expand *group-formatters* *group-format* (cube-group cube))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; cube management          ;;
+;;; cube management                           ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun destroy-cubes (ml)
@@ -181,13 +181,6 @@
 ;; Stumpwm environment   ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun group-mode-lines (group)
-  (mapcar (lambda (head) (head-mode-line head))
-          (screen-heads (group-screen group))))
-
-(defun group-exists-p (group)
-  (and (find group (screen-groups (group-screen group))) t))
-
 (defun create-mode-line-cubes (ml)
   (destroy-cubes ml)
   (dolist (w (sort-groups (group-screen (mode-line-current-group ml))))
@@ -204,16 +197,18 @@
           (mode-line-cubes ml)))
 
 (defun cube-switch (new old)
-  (let ((old-group-exists (group-exists-p old)))
+  (let ((mls (mapcar (lambda (head) (head-mode-line head))
+		     (screen-heads (group-screen new)))))
     (mapcar (lambda (ml)
 	      (when ml
-		;; FIXME: use group object, not number
-		(if (not (find-cube-number ml (group-number new)))
+		;; Create cube for a new group
+		(if (not (find-cube-group ml new))
 		    (add-cube-group ml new)
 		    (redraw-cubes ml))
-		(if (not old-group-exists)
+		;; Delete cube if 'old' group doesn't exist
+		(if (not (find old (screen-groups (group-screen new))))
 		    (delete-cube ml old 'cube-group))))
-            (group-mode-lines new))))
+            mls)))
 
 (defun add-cube-switch-hook ()
   ;; Group Switch hook
